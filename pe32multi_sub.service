@@ -1,0 +1,16 @@
+[Unit]
+Description=PE32 Multi MQTT relay
+After=network.target
+
+[Service]
+Type=simple
+RestartSec=15
+Restart=always
+ExecStart=/usr/bin/python3 /srv/pe32multi_sub/pe32multi_sub.py
+SyslogIdentifier=pe32multi_sub
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+# vim: set syn=dosini:
