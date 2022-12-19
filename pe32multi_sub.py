@@ -60,7 +60,7 @@ class DatabaseConnection:
         if not self._conn:
             self._conn = psycopg2.connect(**self._dsn)
         if self._conn.closed:
-            self._conn.connect()
+            self._conn = psycopg2.connect(**self._dsn)
         assert not self._conn.closed, (
             self._dsn['database'], self._conn.closed)
         return self._conn
