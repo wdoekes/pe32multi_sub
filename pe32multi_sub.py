@@ -90,6 +90,9 @@ class Pe32Writer:
         'dewpoint': ('dewpoint', float),
         'comfortidx': ('comfortidx', float),
         'comfort': ('comfort', str),
+        'mq135rzero': ('mq135rzero', float),
+        'mq135rawppm': ('mq135rawppm', float),
+        'mq135corrppm': ('mq135corrppm', float),
     }
 
     def __init__(self, dbconn):
