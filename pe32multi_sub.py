@@ -169,14 +169,22 @@ class Pe32Relay:
         self._writer.on_measure(device_id, measure, payload)
 
 
-configure_logging()
-dbconn = DatabaseConnection.create_default()
-writer = Pe32Writer(dbconn)
-relay = Pe32Relay(writer)
-client = mqtt.Client()
-client.on_connect = relay.on_connect
-client.on_message = relay.on_message
+def loop_forever():
+    configure_logging()
+    dbconn = DatabaseConnection.create_default()
+    writer = Pe32Writer(dbconn)
+    relay = Pe32Relay(writer)
+    client = mqtt.Client()
+    client.on_connect = relay.on_connect
+    client.on_message = relay.on_message
 
-client.connect('localhost', 1883, 60)
-client.loop_forever()
-raise NotImplementedError('should not get here')
+    client.connect('localhost', 1883, 60)
+    client.loop_forever()
+    raise NotImplementedError('should not get here')
+
+
+if __name__ == '__main__':
+    if sys.argv[1:2] == ['relay']:
+        loop_forever()
+    else:
+        raise NotImplementedError(f'unexpected command: {sys.argv}')

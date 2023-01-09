@@ -136,6 +136,7 @@ INSERT INTO label (name) values ('ergens/fixme');
 INSERT INTO device (identifier, dev_type, label_id) values ('EUI48:11:22:33:44:55:66', 'dht22-v0.1', 1);
 
 --
+-- https://www.keyvanfatehi.com/2021/07/14/how-to-create-read-only-user-in-postgresql/
 -- GRANT USAGE ON SCHEMA public TO plot_reader;
 -- GRANT SELECT ON ALL TABLES IN SCHEMA public TO plot_reader;
 -- ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO plot_reader;
