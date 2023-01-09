@@ -150,8 +150,9 @@ class Pe32DataTables:
     _NUMERIC_TABLE_LAYOUT = {
         'time': {'is_nullable': False, 'data_type': _DB_TS},
         'label_id': {'is_nullable': False, 'data_type': _DB_FK},
+        'avg': {'is_nullable': False, 'data_type': _DB_NUM},  # average
+        'med': {'is_nullable': False, 'data_type': _DB_NUM},  # median
         'low': {'is_nullable': True, 'data_type': _DB_NUM},
-        'avg': {'is_nullable': False, 'data_type': _DB_NUM},
         'high': {'is_nullable': True, 'data_type': _DB_NUM},
     }
     _TEXT_TABLE_LAYOUT = {
