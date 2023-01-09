@@ -286,6 +286,31 @@ def loop_forever():
 if __name__ == '__main__':
     if sys.argv[1:2] == ['relay']:
         loop_forever()
+    elif sys.argv[1:2] == ['devices']:
+        configure_logging()
+        dbconn = DatabaseConnection.create_default()
+        with dbconn.get() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute('''\
+                    SELECT d.id, l.id, d.identifier, l.name, d.dev_type,
+                        d.version_string
+                    FROM label l
+                    LEFT JOIN device d on d.label_id = l.id
+                    ORDER BY l.name, d.identifier
+                ''')
+                for row in cursor.fetchall():
+                    device_id, label_id, rest = row[0], row[1], row[2:]
+                    print(f'- {rest} (#{device_id}->{label_id})')
+    elif sys.argv[1:2] == ['set_label'] and len(sys.argv) == 4:
+        configure_logging()
+        dbconn = DatabaseConnection.create_default()
+        device_id = int(sys.argv[2])
+        label_id = int(sys.argv[3]) if sys.argv[3] else None
+        with dbconn.get() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute('''\
+                    UPDATE device SET label_id = %s WHERE id = %s
+                ''', (label_id, device_id))
     else:
         configure_logging()
         dbconn = DatabaseConnection.create_default()
