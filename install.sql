@@ -29,8 +29,8 @@ CREATE TABLE device (
 CREATE TABLE temperature (
   time        TIMESTAMPTZ  NOT NULL,
   label_id    INT          NOT NULL,
+  avg         REAL         NOT NULL,
   low         REAL         NULL,
-  avg         REAL         NULL,
   high        REAL         NULL,
   CONSTRAINT fk_temperature FOREIGN KEY (label_id) REFERENCES label(id),
   UNIQUE (time, label_id)
@@ -41,8 +41,8 @@ SELECT create_hypertable('temperature', 'time');
 CREATE TABLE humidity (
   time        TIMESTAMPTZ  NOT NULL,
   label_id    INT          NOT NULL,
+  avg         REAL         NOT NULL,
   low         REAL         NULL,
-  avg         REAL         NULL,
   high        REAL         NULL,
   CONSTRAINT fk_humidity FOREIGN KEY (label_id) REFERENCES label(id),
   UNIQUE (time, label_id)
@@ -53,8 +53,8 @@ SELECT create_hypertable('humidity', 'time');
 CREATE TABLE comfortidx (
   time        TIMESTAMPTZ  NOT NULL,
   label_id    INT          NOT NULL,
+  avg         REAL         NOT NULL,
   low         REAL         NULL,
-  avg         REAL         NULL,
   high        REAL         NULL,
   CONSTRAINT fk_comfortidx FOREIGN KEY (label_id) REFERENCES label(id),
   UNIQUE (time, label_id)
@@ -65,8 +65,8 @@ SELECT create_hypertable('comfortidx', 'time');
 CREATE TABLE dewpoint (
   time        TIMESTAMPTZ  NOT NULL,
   label_id    INT          NOT NULL,
+  avg         REAL         NOT NULL,
   low         REAL         NULL,
-  avg         REAL         NULL,
   high        REAL         NULL,
   CONSTRAINT fk_dewpoint FOREIGN KEY (label_id) REFERENCES label(id),
   UNIQUE (time, label_id)
@@ -77,8 +77,8 @@ SELECT create_hypertable('dewpoint', 'time');
 CREATE TABLE heatindex (
   time        TIMESTAMPTZ  NOT NULL,
   label_id    INT          NOT NULL,
+  avg         REAL         NOT NULL,
   low         REAL         NULL,
-  avg         REAL         NULL,
   high        REAL         NULL,
   CONSTRAINT fk_heatindex FOREIGN KEY (label_id) REFERENCES label(id),
   UNIQUE (time, label_id)
@@ -99,8 +99,8 @@ SELECT create_hypertable('comfort', 'time');
 CREATE TABLE mq135rzero (
   time        TIMESTAMPTZ  NOT NULL,
   label_id    INT          NOT NULL,
+  avg         REAL         NOT NULL,
   low         REAL         NULL,
-  avg         REAL         NULL,
   high        REAL         NULL,
   CONSTRAINT fk_mq135rzero FOREIGN KEY (label_id) REFERENCES label(id),
   UNIQUE (time, label_id)
@@ -111,8 +111,8 @@ SELECT create_hypertable('mq135rzero', 'time');
 CREATE TABLE mq135rawppm (
   time        TIMESTAMPTZ  NOT NULL,
   label_id    INT          NOT NULL,
+  avg         REAL         NOT NULL,
   low         REAL         NULL,
-  avg         REAL         NULL,
   high        REAL         NULL,
   CONSTRAINT fk_mq135rawppm FOREIGN KEY (label_id) REFERENCES label(id),
   UNIQUE (time, label_id)
@@ -123,8 +123,8 @@ SELECT create_hypertable('mq135rawppm', 'time');
 CREATE TABLE mq135corrppm (
   time        TIMESTAMPTZ  NOT NULL,
   label_id    INT          NOT NULL,
+  avg         REAL         NOT NULL,
   low         REAL         NULL,
-  avg         REAL         NULL,
   high        REAL         NULL,
   CONSTRAINT fk_mq135corrppm FOREIGN KEY (label_id) REFERENCES label(id),
   UNIQUE (time, label_id)

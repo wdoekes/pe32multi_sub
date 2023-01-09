@@ -56,6 +56,12 @@ class DatabaseConnection:
         self._dsn = dsn
         self._conn = None
 
+    @property
+    def introspection(self):
+        if not hasattr(self, '_introspection'):
+            self._introspection = DatabaseIntrospection(self)
+        return self._introspection
+
     def get(self):
         if not self._conn:
             self._conn = psycopg2.connect(**self._dsn)
@@ -65,13 +71,11 @@ class DatabaseConnection:
             self._dsn['database'], self._conn.closed)
         return self._conn
 
-    def cursor(self):
-        return self.get().cursor()
-
     def get_row(self, query, *args):
-        with self.cursor() as cursor:
-            cursor.execute(query, args)
-            ret = cursor.fetchall()
+        with self.get() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(query, args)
+                ret = cursor.fetchall()
         assert len(ret) == 1, (query, args, ret)
         return ret[0]
 
@@ -81,22 +85,117 @@ class DatabaseConnection:
                 cursor.execute(query, args)
 
 
-class Pe32Writer:
-    TABLE_MAP = {
-        # FIXME: add limits here..? temperature never <50 or >120?
-        'temperature': ('temperature', float),
-        'humidity': ('humidity', float),
-        'heatindex': ('heatindex', float),
-        'dewpoint': ('dewpoint', float),
-        'comfortidx': ('comfortidx', float),
-        'comfort': ('comfort', str),
-        'mq135rzero': ('mq135rzero', float),
-        'mq135rawppm': ('mq135rawppm', float),
-        'mq135corrppm': ('mq135corrppm', float),
-    }
-
+class DatabaseIntrospection:
     def __init__(self, dbconn):
         self._dbconn = dbconn
+        self._catalog = dbconn.get_dsn()['database']
+        self._schema = 'public'
+
+    @property
+    def tables(self):
+        if not hasattr(self, '_tables'):
+            with dbconn.get() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute(f'''\
+                        SELECT table_name FROM information_schema.tables
+                        WHERE table_catalog = '{self._catalog}'
+                            AND table_schema = '{self._schema}'
+                            AND table_type = 'BASE TABLE'
+                    ''')
+                    self._tables = list(sorted(
+                        row[0] for row in cursor.fetchall()))
+        return self._tables
+
+    def columns_for(self, table):
+        if not hasattr(self, '_columns_for'):
+            assert not any("'" in tbl for tbl in self.tables), self.tables
+            tables_str = ','.join(f"'{tbl}'" for tbl in self.tables)
+            with dbconn.get() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute(f'''\
+                        SELECT table_name, column_name, is_nullable, data_type
+                        FROM information_schema.columns
+                        WHERE table_catalog = '{self._catalog}'
+                            AND table_schema = '{self._schema}'
+                            AND table_name IN ({tables_str})
+                    ''')
+                    res = cursor.fetchall()
+            columns_for = {}
+            for row in res:
+                table_name, column_name, props = row[0], row[1], row[2:]
+                if table_name not in columns_for:
+                    columns_for[table_name] = {}
+                columns_for[table_name][column_name] = {
+                    'is_nullable': props[0] != 'NO',
+                    'data_type': props[1],
+                }
+            self._columns_for = columns_for
+
+        return self._columns_for[table]
+
+
+class Pe32DataTables:
+    """
+    Get data table mapping/marshalling.
+
+    There are two "system" tables: device, label
+
+    The rest are expected to take floats or strings. The floating point ones
+    also get min/max columns.
+    """
+    _DB_TS = 'timestamp with time zone'
+    _DB_FK = 'integer'
+    _DB_NUM = 'real'
+    _DB_STR = 'character varying'
+    _NUMERIC_TABLE_LAYOUT = {
+        'time': {'is_nullable': False, 'data_type': _DB_TS},
+        'label_id': {'is_nullable': False, 'data_type': _DB_FK},
+        'low': {'is_nullable': True, 'data_type': _DB_NUM},
+        'avg': {'is_nullable': False, 'data_type': _DB_NUM},
+        'high': {'is_nullable': True, 'data_type': _DB_NUM},
+    }
+    _TEXT_TABLE_LAYOUT = {
+        'time': {'is_nullable': False, 'data_type': _DB_TS},
+        'label_id': {'is_nullable': False, 'data_type': _DB_FK},
+        'value': {'is_nullable': False, 'data_type': _DB_STR},
+    }
+
+    @classmethod
+    def from_database(cls, dbconn):
+        # FIXME: add limits somewhere.? temperature never <50 or >120?
+        # Needs to be added to marshaller below.
+        ret = cls()
+
+        for table in dbconn.introspection.tables:
+            columns = dbconn.introspection.columns_for(table)
+            if table in ('device', 'label'):
+                pass
+            elif columns == cls._NUMERIC_TABLE_LAYOUT:
+                ret.add_numeric(table)
+            elif columns == cls._TEXT_TABLE_LAYOUT:
+                ret.add_text(table)
+            else:
+                log.info(f'Skipping table {table} with columns {columns}')
+
+        return ret
+
+    def __init__(self):
+        self._tables = {}
+
+    def add_numeric(self, table):
+        self._tables[table] = (table, float)  # table_name, marshaller
+
+    def add_text(self, table):
+        self._tables[table] = (table, str)  # table_name, marshaller
+
+    def get(self, table):
+        return self._tables.get(table, (None, None))
+
+
+class Pe32Writer:
+    def __init__(self, dbconn, tables):
+        self._dbconn = dbconn
+        self._tables = tables
 
     def get_device(self, device_id):
         return self._dbconn.get_row(
@@ -105,7 +204,7 @@ class Pe32Writer:
 
     def on_measure(self, device_id, measure, str_value):
         device_id, dev_type, label_id = self.get_device(device_id)
-        table, caster = self.TABLE_MAP.get(measure, (None, None))
+        table, marshaller = self._tables.get(measure)
         if not table or not label_id:
             log.info(
                 f'ignoring {device_id} {dev_type} {label_id} {measure} '
@@ -113,9 +212,8 @@ class Pe32Writer:
             return
 
         timestamp = (time.time() // 60) * 60
-        value = caster(str_value)
-        # FIXME: must do with on the conn as well.. otherwise not transaction?
-        if caster == str:
+        value = marshaller(str_value)
+        if marshaller == str:
             self._dbconn.put_row(
                 f'INSERT INTO {table} (time, label_id, value) VALUES '
                 f'(to_timestamp(%s), %s, %s)',
@@ -172,7 +270,8 @@ class Pe32Relay:
 def loop_forever():
     configure_logging()
     dbconn = DatabaseConnection.create_default()
-    writer = Pe32Writer(dbconn)
+    datatables = Pe32DataTables.from_database(dbconn)
+    writer = Pe32Writer(dbconn, datatables)
     relay = Pe32Relay(writer)
     client = mqtt.Client()
     client.on_connect = relay.on_connect
@@ -187,4 +286,10 @@ if __name__ == '__main__':
     if sys.argv[1:2] == ['relay']:
         loop_forever()
     else:
+        configure_logging()
+        dbconn = DatabaseConnection.create_default()
+        # for table in dbconn.introspection.tables:
+        #     print(dbconn.introspection.columns_for(table))
+        datatables = Pe32DataTables.from_database(dbconn)
+        print(datatables._tables)
         raise NotImplementedError(f'unexpected command: {sys.argv}')
